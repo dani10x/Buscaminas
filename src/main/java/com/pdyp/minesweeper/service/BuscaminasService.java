@@ -8,7 +8,7 @@ import java.util.List;
 
 public interface BuscaminasService {
 
-    MensajeResponse crearJuego(NuevoJuego nuevoJuego);
+    MensajeResponse crearJuego(String idJugador, NuevoJuego nuevoJuego);
 
-    List<List<Casilla>> getJuego();
+    List<List<Casilla>> getJuego(String idJugador);
 }

@@ -6,7 +6,9 @@ import com.pdyp.minesweeper.message.response.MensajeResponse;
 import com.pdyp.minesweeper.service.BuscaminasService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.handler.annotation.MessageMapping;
-import org.springframework.messaging.handler.annotation.SendTo;
+import org.springframework.messaging.handler.annotation.Payload;
+import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
+import org.springframework.messaging.simp.annotation.SendToUser;
 import org.springframework.stereotype.Controller;
 
 import java.util.List;
@@ -18,14 +20,16 @@ public class JuegoController {
     private final BuscaminasService buscaminasService;
 
     @MessageMapping("/nuevo")
-    @SendTo("/topic/buscaminas")
-    public MensajeResponse crearJuego(NuevoJuego nuevoJuego) {
-        return buscaminasService.crearJuego(nuevoJuego);
+    @SendToUser("/queue/buscaminas")
+    public MensajeResponse crearJuego(@Payload NuevoJuego nuevoJuego, SimpMessageHeaderAccessor headerAccessor) {
+        String idUser = (String) headerAccessor.getSessionAttributes().get("sessionId");
+        return buscaminasService.crearJuego(idUser, nuevoJuego);
     }
 
     @MessageMapping("/get")
-    @SendTo("/topic/buscaminas")
-    public List<List<Casilla>> getJuego() {
-        return buscaminasService.getJuego();
+    @SendToUser("/queue/buscaminas")
+    public List<List<Casilla>> getJuego(SimpMessageHeaderAccessor headerAccessor) {
+        String idUser = (String) headerAccessor.getSessionAttributes().get("sessionId");
+        return buscaminasService.getJuego(idUser);
     }
 }
