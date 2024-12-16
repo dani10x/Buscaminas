@@ -14,4 +14,15 @@ import java.util.List;
 public class Juego {
 
     private List<List<Casilla>> tablero;
+    private int filas;
+    private int columnas;
+    private int casillasRevelar;
+
+    public void casillaRevelada() {
+        casillasRevelar--;
+    }
+
+    public boolean finDelJuego() {
+        return casillasRevelar == 0;
+    }
 }

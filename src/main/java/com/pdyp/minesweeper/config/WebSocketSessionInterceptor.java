@@ -22,6 +22,7 @@ public class WebSocketSessionInterceptor implements HandshakeInterceptor {
             HttpSession session = servletRequest
                     .getServletRequest().getSession();
             attributes.put("sessionId", session.getId());
+            attributes.put("idUsuario", UUID.randomUUID().toString());
         }
         return true;
     }

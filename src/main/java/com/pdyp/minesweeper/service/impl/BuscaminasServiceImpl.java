@@ -3,8 +3,11 @@ package com.pdyp.minesweeper.service.impl;
 import com.pdyp.minesweeper.game.Casilla;
 import com.pdyp.minesweeper.game.Juego;
 import com.pdyp.minesweeper.message.request.NuevoJuego;
+import com.pdyp.minesweeper.message.response.CasillaResponse;
 import com.pdyp.minesweeper.message.response.MensajeResponse;
 import com.pdyp.minesweeper.service.BuscaminasService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -14,9 +17,11 @@ import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
+@RequiredArgsConstructor
 public class BuscaminasServiceImpl implements BuscaminasService {
 
     private final Map<String, Juego> juegos = new ConcurrentHashMap<>();
+    private final SimpMessagingTemplate simpMessagingTemplate;
 
     @Override
     public MensajeResponse crearJuego(String idJugador, NuevoJuego nuevoJuego) {
@@ -25,29 +30,100 @@ public class BuscaminasServiceImpl implements BuscaminasService {
         } catch (Exception e) {
             return MensajeResponse.builder().error(true).respuesta(e.getMessage()).build();
         }
-        juegos.put(idJugador, nuevoJuego(nuevoJuego));
+        juegos.put(idJugador, nuevoJuego(nuevoJuego, idJugador));
         return MensajeResponse.builder().respuesta("Juego creado").error(false).build();
     }
 
     @Override
     public List<List<Casilla>> getJuego(String idJugador) {
-        List<List<Casilla>> tablero = buscarJuego(idJugador);
+        List<List<Casilla>> tablero = buscarJuego(idJugador).getTablero();
         if(tablero == null || tablero.isEmpty()) {
             return List.of();
         }
         return tablero;
     }
 
-    private List<List<Casilla>> buscarJuego(String idJugador) {
-        return juegos.getOrDefault(idJugador, new Juego(new ArrayList<>())).getTablero();
+    @Override
+    public List<CasillaResponse> revelarCasillas(int x, int y, String idJugador) {
+        Juego juego = buscarJuego(idJugador);
+        if(juego.finDelJuego()) {
+            enviarMensaje(idJugador, "El juego ya no se encuentra disponible");
+            return null;
+        }
+        if(validarCordenadaTablero(x, y, juego) || juego.getTablero().get(x).get(y).getDescubierto()) {
+            enviarMensaje(idJugador, "Posición inválida");
+            return null;
+        }
+        if(juego.getTablero().get(x).get(y).getMina()) {
+            enviarMensaje(idJugador, "Haz perdido");
+            juego.setCasillasRevelar(0);
+            return null;
+        }
+        else {
+            return calcularCasillas(x, y, buscarJuego(idJugador), idJugador);
+        }
     }
 
-    private Juego nuevoJuego(NuevoJuego nuevoJuego) {
+    private List<CasillaResponse> calcularCasillas(int x, int y, Juego juego, String idJugador) {
+        List<CasillaResponse> casillas = new ArrayList<>();
+        revelarCasilla(x, y, juego, casillas);
+        if(juego.finDelJuego()) {
+            enviarMensaje(idJugador, "¡Felicidades, haz ganado!");
+        }
+        return casillas;
+    }
+
+    private void revelarCasilla(int x, int y, Juego juego, List<CasillaResponse> casillas) {
+        if (validarCordenadaTablero(x, y, juego)) {
+            return;
+        }
+
+        Casilla casilla = juego.getTablero().get(x).get(y);
+
+        if (casilla.getDescubierto()) {
+            return;
+        }
+
+        casilla.setDescubierto(true);
+        CasillaResponse response = new CasillaResponse(casilla.getMinaCercana(), x, y);
+        casillas.add(response);
+        juego.casillaRevelada();
+
+        if (casilla.getMinaCercana() > 0) {
+            return;
+        }
+
+        int[] dx = {-1, -1, -1, 0, 1, 1, 1, 0};
+        int[] dy = {-1, 0, 1, 1, 1, 0, -1, -1};
+
+        for (int i = 0; i < dx.length; i++) {
+            revelarCasilla(x + dx[i], y + dy[i], juego, casillas);
+        }
+    }
+
+    private boolean validarCordenadaTablero(int x, int y, Juego juego) {
+        return x < 0 || x >= juego.getFilas() || y < 0 || y >= juego.getColumnas();
+    }
+
+    private Juego buscarJuego(String idJugador) {
+        return juegos.getOrDefault(idJugador, new Juego(new ArrayList<>(), 0, 0, 0));
+    }
+
+    private Juego nuevoJuego(NuevoJuego nuevoJuego, String session) {
         List<List<Casilla>> tablero = new ArrayList<>();
+        enviarMensaje(session, "Iniciando tablero");
         iniciarTablero(nuevoJuego.getFilas(), nuevoJuego.getColumnas(), tablero);
+        enviarMensaje(session, "Plantando minas");
         plantarMinas(nuevoJuego.getFilas(), nuevoJuego.getColumnas(), nuevoJuego.getMinas(), tablero);
+        enviarMensaje(session, "Preparando juego");
         calcularMinasCercanas(nuevoJuego.getFilas(), nuevoJuego.getColumnas(), tablero);
-        return new Juego(tablero);
+        return new Juego(tablero, nuevoJuego.getFilas(), nuevoJuego.getColumnas(),
+                (nuevoJuego.getFilas()*nuevoJuego.getColumnas()-nuevoJuego.getMinas()));
+    }
+
+    private void enviarMensaje(String idJugador, String mensaje) {
+        String destino = "/topic/" + idJugador + "/queue/notificaciones";
+        simpMessagingTemplate.convertAndSend(destino, MensajeResponse.builder().error(false).respuesta(mensaje).build());
     }
 
     private void validarInicioJuego(int filas, int columnas, int minas) {
