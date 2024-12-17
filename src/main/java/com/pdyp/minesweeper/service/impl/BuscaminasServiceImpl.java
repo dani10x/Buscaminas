@@ -36,7 +36,12 @@ public class BuscaminasServiceImpl implements BuscaminasService {
 
     @Override
     public List<List<Casilla>> getJuego(String idJugador) {
-        List<List<Casilla>> tablero = buscarJuego(idJugador).getTablero();
+        Juego juego = juegos.get(idJugador);
+        if(juego.finDelJuego()) {
+            return List.of();
+        }
+        juego.setCasillasRevelar(0);
+        List<List<Casilla>> tablero = juego.getTablero();
         if(tablero == null || tablero.isEmpty()) {
             return List.of();
         }
@@ -57,11 +62,17 @@ public class BuscaminasServiceImpl implements BuscaminasService {
         if(juego.getTablero().get(x).get(y).getMina()) {
             enviarMensaje(idJugador, "Haz perdido");
             juego.setCasillasRevelar(0);
-            return null;
+            return List.of(new CasillaResponse(0, x, y, true));
         }
         else {
             return calcularCasillas(x, y, buscarJuego(idJugador), idJugador);
         }
+    }
+
+    @Override
+    public MensajeResponse reiniciarJuego(String idJugString) {
+        juegos.remove(idJugString);
+        return MensajeResponse.builder().error(false).respuesta("Juego reiniciado").build();
     }
 
     private List<CasillaResponse> calcularCasillas(int x, int y, Juego juego, String idJugador) {
@@ -85,7 +96,7 @@ public class BuscaminasServiceImpl implements BuscaminasService {
         }
 
         casilla.setDescubierto(true);
-        CasillaResponse response = new CasillaResponse(casilla.getMinaCercana(), x, y);
+        CasillaResponse response = new CasillaResponse(casilla.getMinaCercana(), x, y, false);
         casillas.add(response);
         juego.casillaRevelada();
 

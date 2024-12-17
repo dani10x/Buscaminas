@@ -14,4 +14,5 @@ public class CasillaResponse {
     private int numero;
     private int x;
     private int y;
+    private boolean mina;
 }

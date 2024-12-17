@@ -11,7 +11,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.messaging.simp.annotation.SendToUser;
 import org.springframework.stereotype.Controller;
 
@@ -22,7 +21,6 @@ import java.util.List;
 public class JuegoController {
 
     private final BuscaminasService buscaminasService;
-    private final SimpMessagingTemplate simpMessagingTemplate;
 
     @MessageMapping("/iniciar")
     @SendToUser("/queue/buscaminas")
@@ -36,6 +34,13 @@ public class JuegoController {
     public MensajeResponse crearJuego(@Payload NuevoJuego nuevoJuego, SimpMessageHeaderAccessor headerAccessor) {
         String idUser = (String) headerAccessor.getSessionAttributes().get("idUsuario");
         return buscaminasService.crearJuego(idUser, nuevoJuego);
+    }
+
+    @MessageMapping("/reiniciar")
+    @SendToUser("/queue/buscaminas")
+    public MensajeResponse reiniciar(SimpMessageHeaderAccessor headerAccessor) {
+        String idUser = (String) headerAccessor.getSessionAttributes().get("idUsuario");
+        return  buscaminasService.reiniciarJuego(idUser);
     }
 
     @MessageMapping("/revelar")

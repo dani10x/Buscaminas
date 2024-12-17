@@ -15,4 +15,6 @@ public interface BuscaminasService {
 
     List<CasillaResponse> revelarCasillas(int x, int y, String idJugador);
 
+    MensajeResponse reiniciarJuego(String idJugString);
+
 }

@@ -1,13 +1,14 @@
 const stompClient = new StompJs.Client({
-    brokerURL: 'ws://localhost:8080/gs-guide-websocket'
+    brokerURL: 'ws://localhost:8080/buscaminas'
 });
 
 stompClient.onConnect = (frame) => {
     setConnected(true);
     console.log('Connected: ' + frame);
-    stompClient.subscribe('/topic/greetings', (greeting) => {
-        showGreeting(greeting);
+    stompClient.subscribe('/user/queue/buscaminas', (response) => {
+       showGreeting(response);
     });
+
 };
 
 stompClient.onWebSocketError = (error) => {
@@ -52,7 +53,44 @@ function showGreeting(respuesta) {
 console.log(respuesta.body);
 let format = JSON.parse(respuesta.body);
 console.log(format);
-    $("#greetings").append("<tr><td>" + format.respuesta + "</td></tr>");
+    $("#greetings").append("<tr><td>" + respuesta.body + "</td></tr>");
+
+if(format.idUsuario) {
+    connectNotifications(format.idUsuario);
+}
+}
+function connectNotifications (idUser) {
+    let canal = "/topic/" + idUser + "/queue/notificaciones"
+    stompClient.subscribe(canal, (response) => {
+           showGreeting(response);
+    });
+}
+function nuevoJuego() {
+    stompClient.publish({
+        destination: "/app/nuevo",
+        body: JSON.stringify({'filas': 3, 'columnas': 3, 'minas': 3})
+    });
+}
+
+function clickCuadro() {
+    stompClient.publish({
+        destination: "/app/revelar",
+        body: JSON.stringify({'x': $("#x").val(), 'y': $("#y").val()})
+    });
+}
+
+function iniciar() {
+    stompClient.publish({
+        destination: "/app/iniciar",
+        body: {}
+    });
+}
+
+function getJuego() {
+    stompClient.publish({
+        destination: "/app/get",
+        body: {}
+    });
 }
 
 $(function () {
@@ -60,4 +98,8 @@ $(function () {
     $( "#connect" ).click(() => connect());
     $( "#disconnect" ).click(() => disconnect());
     $( "#send" ).click(() => sendName());
+    $("#nuevo").click(() => nuevoJuego());
+    $("#juego").click(() => getJuego());
+    $("#iniciar").click(() => iniciar());
+    $("#click").click(() => clickCuadro());
 });
